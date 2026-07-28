@@ -4,6 +4,17 @@
 
 # Battlestation Bruce Diagnostic — System Overview
 
+> **REMOVED 2026-07-27.** At Harris's request, this automation was fully decommissioned:
+> the crontab entry deleted, the local project folder
+> (`/Users/sealautomation/Projects/Battlestation Bruce Diagnostic/`) removed, and the old
+> superseded predecessor folder (`Battlestation Bruce Automation/`) removed too. This
+> repo is kept only as a dormant code archive — nothing runs from it anymore. Scope was
+> the Claude Code / automation integration only: the `@bruce` persona itself and its
+> files under Dropbox (persona spec, published diagnostic reports) were explicitly left
+> untouched, and the "Bruce Automation Log" Google Sheet was kept as a historical record.
+> The rest of this document describes the system **as it existed before removal** — do
+> not treat it as still running.
+
 _This file is the plain-language explanation of what this system is and how it currently
 operates. It is meant to be read on its own — by a person (e.g. Professor Alex) or by a
 Claude session — and answer "how does this work?" without needing to read code first._
