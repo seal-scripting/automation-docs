@@ -20,7 +20,13 @@ a no-auth-required copy of this file for sessions without GitHub read access. Co
 change made here into that file too, in the same work — it's a read-only mirror, and it
 drifts stale the moment this file changes without it being updated alongside.
 
-_Last updated: 2026-07-27._
+**Also update the Dropbox copy:** a plain-text copy of this file also lives at
+`[ACTIVE]ClaudeMain/[3]Tools/Automations/docs/onboarding-v1.md` (and the `[MASTER]`
+mirror), so a Claude session with Dropbox access but no GitHub credentials or working
+URL-fetch tool can read it directly — no fetch, no search, no asking a person to paste
+content back. Copy any change made here into that file too, in the same work.
+
+_Last updated: 2026-07-28._
 
 ---
 
@@ -131,11 +137,13 @@ scoped to this repo only — regenerate at
 `seal-scripting` account rather than a personal one specifically so no single person is
 a bottleneck for repo/editor access.
 
-**Nothing about this project lives in or syncs through Dropbox.** There is no mirrored
-copy of this code anywhere else — a single source of truth was a deliberate choice, not
-an oversight. If you're a Claude session and you find yourself pointed at a Dropbox
-folder for information about this project, that folder is stale by definition — come
-back to this GitHub repo instead.
+**This project's code has no presence in Dropbox at all.** A single source of truth for
+code was a deliberate choice, not an oversight — if you're a Claude session and you find
+scripts, config, or credentials mirrored in a Dropbox folder for this project, that's
+stale/wrong, and you should come back to this GitHub repo instead. The one deliberate
+exception is *this document itself* (not code): a read-only copy also lives in Dropbox,
+specifically so a session with no GitHub credentials or working URL-fetch tool can still
+read it — see the maintenance rule above for the exact path.
 
 Mechanically, it's just `git pull` — no LLM, no external service in the loop at all:
 - **Before every hourly run**, `run_all.sh` does `git pull --ff-only origin master` as
