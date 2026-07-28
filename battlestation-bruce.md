@@ -30,7 +30,13 @@ Copy any change made here into that file too, in the same work — it's a read-o
 mirror, and it drifts stale the moment this file changes without it being updated
 alongside.
 
-_Last updated: 2026-07-27._
+**Also update the Dropbox copy:** a plain-text copy of this file also lives at
+`[ACTIVE]ClaudeMain/[3]Tools/Automations/docs/battlestation-bruce.md` (and the
+`[MASTER]` mirror), so a Claude session with Dropbox access but no GitHub credentials or
+working URL-fetch tool can read it directly — no fetch, no search, no asking a person to
+paste content back. Copy any change made here into that file too, in the same work.
+
+_Last updated: 2026-07-28._
 
 > Note: an older `BRUCE_SYSTEM_OVERVIEW.md` exists in a sibling directory,
 > `Battlestation Bruce Automation/`, which is a stale/superseded predecessor to this
