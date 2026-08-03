@@ -20,13 +20,16 @@ a no-auth-required copy of this file for sessions without GitHub read access. Co
 change made here into that file too, in the same work — it's a read-only mirror, and it
 drifts stale the moment this file changes without it being updated alongside.
 
-**Also update the Dropbox copy:** a plain-text copy of this file also lives at
-`[ACTIVE]ClaudeMain/[3]Tools/Automations/docs/onboarding-v1.md` (and the `[MASTER]`
-mirror), so a Claude session with Dropbox access but no GitHub credentials or working
-URL-fetch tool can read it directly — no fetch, no search, no asking a person to paste
-content back. Copy any change made here into that file too, in the same work.
+**Also update the Dropbox copy:** a plain-text copy of this file lives at
+`[MASTER]ClaudeMain/[3]Tools/Automations/docs/onboarding-v1.md`, so a Claude session
+with Dropbox access but no GitHub credentials or working URL-fetch tool can read it
+directly — no fetch, no search, no asking a person to paste content back. Copy any
+change made here into that `[MASTER]` file too, in the same work. **Do not** also write
+the full content into the `[ACTIVE]` tree — its `docs/onboarding-v1.md` is intentionally
+just a short pointer stub to the `[MASTER]` copy (2026-07-28: real content used to live
+in both trees; now it's `[MASTER]`-only so there's one file to update, not two).
 
-_Last updated: 2026-07-28._
+_Last updated: 2026-08-03._
 
 ---
 
@@ -146,14 +149,15 @@ specifically so a session with no GitHub credentials or working URL-fetch tool c
 read it — see the maintenance rule above for the exact path.
 
 Mechanically, it's just `git pull` — no LLM, no external service in the loop at all:
-- **Before every hourly run**, `run_all.sh` does `git pull --ff-only origin master` as
-  its very first pre-flight step (before even the token health check). If the pull
-  fails for any reason (network issue, diverged history), the run **aborts that cycle**
-  — it does not proceed against a possibly-stale tree — logs to `.tmp/cron.log`, emails
-  `harrisnakajima@gmail.com` via `error_notify.py`, and simply retries next hour.
-- **`monitor_fx_associates.py`** (the separate daily cron line) does the same pull-and-
-  abort-on-failure check as the first thing in its own `main()`, since it isn't invoked
-  through `run_all.sh`.
+- **`execution/git_pull_check.py` pulls once/day, on its own dedicated cron line at 4am
+  PST (as of 2026-08-03).** `run_all.sh` (hourly) and `monitor_fx_associates.py` (daily
+  6:35) no longer touch git at all — they always run on whatever code is currently
+  checked out. This replaced an earlier design where `run_all.sh` pulled first and
+  aborted the entire hourly cycle on a pull failure; see the incident below for why that
+  changed. A failed daily pull still emails `harrisnakajima@gmail.com` via
+  `error_notify.py`, and the repo just stays on yesterday's code until the next
+  successful pull — the hourly pipeline keeps running normally in the meantime (fail
+  *open* on code staleness, not fail-closed on the whole pipeline).
 - Secrets (`.env`, `credentials.json`, `token_*.json`) are gitignored and have never been
   pushed to GitHub — same discipline as before, just enforced by `.gitignore` instead of
   sync-tooling logic. Runtime/state files (`alumni_email_sent.json`,
@@ -184,6 +188,20 @@ directive's "Learnings" section for the complete account:
   strictly to rows evicted in the current run. **General lesson applied project-wide:**
   before wiring up any side-effecting step that iterates over a collection, check and log
   how many items it will actually touch — ideally via a dry run — before it goes live.
+- **2026-08-01/02 — silent 57-hour pipeline blackout.** A machine-wide DNS resolution
+  failure (`Could not resolve host`, affecting both `github.com` and
+  `oauth2.googleapis.com` — this machine resolves DNS primarily through Tailscale's
+  MagicDNS, root cause not yet found) meant `run_all.sh`'s git-pull-first, fail-closed
+  preflight aborted every single hourly run from 2026-08-01 00:00 PDT through
+  2026-08-03 09:00 PDT — **the entire pipeline didn't run for 57 hours.** Worse: the
+  `error_notify.py` alert meant to warn about exactly this also failed silently every
+  time, since sending it requires resolving `oauth2.googleapis.com` too — same root
+  cause, so zero alerts went out for the whole blackout. It self-recovered and caught up
+  on the backlog automatically (idempotent design), no data lost. Fixed by decoupling
+  git pull into its own daily job (see section 6) so a GitHub-specific outage can no
+  longer block the pipeline — note this specific incident was a *general* DNS failure,
+  so this fix alone would not have prevented it; the Tailscale/DNS root cause is a
+  separate open question.
 
 ## 8. How to check on it right now
 
