@@ -19,13 +19,17 @@ Copy any change made here into that file too, in the same work — it's a read-o
 mirror, and it drifts stale the moment this file changes without it being updated
 alongside.
 
-**Also update the Dropbox copy:** a plain-text copy of this file also lives at
-`[ACTIVE]ClaudeMain/[3]Tools/Automations/docs/sector-account-sharing.md` (and the
-`[MASTER]` mirror), so a Claude session with Dropbox access but no GitHub credentials or
-working URL-fetch tool can read it directly — no fetch, no search, no asking a person to
-paste content back. Copy any change made here into that file too, in the same work.
+**Also update the Dropbox copy:** a plain-text copy of this file lives at
+`[MASTER]ClaudeMain/[3]Tools/Automations/docs/sector-account-sharing.md`, so a Claude
+session with Dropbox access but no GitHub credentials or working URL-fetch tool can
+read it directly — no fetch, no search, no asking a person to paste content back. Copy
+any change made here into that `[MASTER]` file too, in the same work. **Do not** also
+write the full content into the `[ACTIVE]` tree — its `docs/sector-account-sharing.md`
+is intentionally just a short pointer stub to the `[MASTER]` copy (2026-07-28: real
+content used to live in both trees; now it's `[MASTER]`-only so there's one file to
+update, not two).
 
-_Last updated: 2026-07-28._
+_Last updated: 2026-08-03._
 
 ---
 
@@ -104,6 +108,7 @@ This does **not** run on a simple fixed schedule. Instead:
 ```
 execution/poll_and_trigger.py     the 2-minute cron entry point — checks for a pending trigger
 execution/reconcile_sharing.py    the actual reconcile logic (--dry-run or --live)
+execution/git_pull_check.py       daily (4am PST) code-update check — see section 7
 directives/share_accounts.md      the SOP — the "why" and the incident history
 .env                              sheet IDs, folder ID, safelist, audit-log ID — never in git
 token_drive.json / credentials.json   cached OAuth token / client secret — never in git
@@ -114,15 +119,21 @@ token_drive.json / credentials.json   cached OAuth token / client secret — nev
 
 This project's code lives in its own GitHub repo (pushed via an HTTPS remote with a
 fine-grained Personal Access Token embedded in the URL, Contents: Read/write scoped to
-this repo only — same pattern as SEAL Onboarding Automation V1). Both cron-invoked
-entry points (`poll_and_trigger.py` and `reconcile_sharing.py`) do `git pull --ff-only
-origin main` as the very first thing they do; if the pull fails, that run aborts
-(fail-closed) rather than proceeding on a possibly-stale tree, and — since
-`poll_and_trigger.py` runs every 2 minutes — the next cycle simply retries. Secrets
-(`.env`, `credentials.json`, `token_drive.json`) are gitignored and have never been
-pushed. This repo is edited by technical staff directly; this file exists so a
-non-technical reader (or a Claude session) can understand what the system does without
-reading Python.
+this repo only — same pattern as SEAL Onboarding Automation V1). Secrets (`.env`,
+`credentials.json`, `token_drive.json`) are gitignored and have never been pushed. This
+repo is edited by technical staff directly; this file exists so a non-technical reader
+(or a Claude session) can understand what the system does without reading Python.
+
+**Code-update check runs separately from the operational cron jobs (as of
+2026-08-03).** `git_pull_check.py` runs once/day at 4am PST via its own cron line and is
+the *only* place this repo touches git — `poll_and_trigger.py` (every 2 min) and
+`reconcile_sharing.py` (daily backstop, and every live reconcile) never pull; they just
+run whatever code is currently checked out. If the 4am pull fails, it logs a `FATAL` row
+to the Audit Log and the repo simply stays on yesterday's code until the next successful
+pull — reconciliation keeps running normally in the meantime (fail *open* on code
+staleness, not fail-closed on reconciliation). This replaced an earlier design where
+both operational scripts pulled first and aborted the whole run on failure; see the
+2026-08-01/02 incident below for why that was changed.
 
 ## 8. Notable incidents worth knowing about (full detail in the directive)
 
@@ -137,6 +148,19 @@ reading Python.
 - **ARC doc orphaned** — an account column was removed from the spreadsheet, leaving its
   password doc unmanaged. The reconciler now logs a `WARN` for any doc in the folder
   that can't be matched to a current account column, so this is caught automatically.
+  (2026-07-25: the same thing happened to all six `Seal Sector 1-6` accounts when they
+  were retired; the docs were moved into an "Old (NOT IN USE)" subfolder in the
+  Passwords folder on 2026-08-03, which is expected/fine — not a live account anymore.)
+- **Silent multi-day reconciliation blackout (2026-08-01/02)** — a ~58-hour DNS outage
+  (`Could not resolve host: github.com`, machine-wide, also hit SEAL Onboarding V1) made
+  every `git pull --ff-only` fail. Both `poll_and_trigger.py` and `reconcile_sharing.py`
+  used to run that pull first and fail-closed on failure, so *no reconciliation ran at
+  all* for the full outage — and since the failure happened before either script reached
+  any audit-logging code, nothing was written to the Audit Log either; the only trace was
+  in local `.tmp/cron.log`. Fixed by moving the pull to its own daily `git_pull_check.py`
+  cron job (4am PST) that the operational scripts no longer depend on, and having that
+  job write a `FATAL` audit row on failure so a bad pull is visible from the Audit Log
+  itself, not just local logs.
 
 ## 9. How to check on it right now
 
