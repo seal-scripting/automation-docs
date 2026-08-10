@@ -29,7 +29,7 @@ the full content into the `[ACTIVE]` tree — its `docs/onboarding-v1.md` is int
 just a short pointer stub to the `[MASTER]` copy (2026-07-28: real content used to live
 in both trees; now it's `[MASTER]`-only so there's one file to update, not two).
 
-_Last updated: 2026-08-03._
+_Last updated: 2026-08-10._
 
 ---
 
@@ -78,7 +78,7 @@ one having already updated the roster:
 |---|---|---|---|
 | 0 | `token_health_check.py` | — | Pre-flight: confirms every OAuth token can still refresh. If any token is dead, the whole run aborts before touching anything (nothing worse than a partial run against half-working credentials). |
 | 1 | `process_clan_cleanup.py` | [`process_clan_cleanup.md`](directives/process_clan_cleanup.md) | Reads the **Associates** tab of **SEAL Clan Life**. Routes departing/reclassified members out: evictions (GameOver/Ex-Communicado, Ex-Associate) move the row to the **Clan Life AAD** sheet and pull the person out of Google Groups + Slack; Affiliate moves the row within Clan Life; **Alumni** (a specific grade-column status) does a full access teardown (all groups) plus a one-time Discord-invite email. Also runs a **Sandbox swap** — a grade-driven, read-only Google Group membership toggle (in/out of the sandbox group) that never touches the sheet rows. Runs first because later stages assume departures have already been removed. |
-| 2 | `process_applicants.py` | [`process_applicants.md`](directives/process_applicants.md) | Reads new rows in the **SEAL Applicants** sheet's "Current Applicants" tab, classifies each Approved/Rejected based on a reviewer-filled column, files them into the right tab, adds approved applicants to the onboarding Google Group, and sends the approval/rejection email (tracked so it's never sent twice). |
+| 2 | `process_applicants.py` | [`process_applicants.md`](directives/process_applicants.md) | Reads new rows in the **SEAL Applicants** sheet's "Current Applicants" tab, classifies each Approved/Waitlisted/Rejected based on a reviewer-filled column plus (as of 2026-08-10) a field-of-interest keyword check, files them into the right tab, adds approved applicants to the onboarding Google Group, and sends the approval/waitlist/rejection email (tracked so it's never sent twice). See §3a below for the waitlist/referral mechanic. |
 | 3 | `process_challenge.py` | [`process_challenge.md`](directives/process_challenge.md) | Watches the **SEAL Applicant Challenge** sheet for applicants who've hit "stage 3" (finished Step 1 of onboarding). Promotes them into the **Associates** tab of Clan Life, adds them to the active Google Group, and gets them into the Slack workspace (invite if new, reactivate if returning). Runs after cleanup so a promoted student is never mistaken for someone who already left. |
 | 4 | `process_slack_audit.py` | [`process_slack_audit.md`](directives/process_slack_audit.md) | Compares every current Associate against the Slack workspace member list and fixes any drift (missing → invite, deactivated → reactivate). Deliberately runs **last** among the first four — it trusts the Associates tab completely, so anyone who should have already been evicted needs to be gone from Associates *before* this runs, or it will incorrectly restore their Slack access. |
 | 5 | `process_onboarding_cleanup.py` | [`process_onboarding_cleanup.md`](directives/process_onboarding_cleanup.md) | Removes departed members from the `onboarding@maxalton.com` Google Group (the one applicants get added to before they're full members), by cross-referencing the AAD sheet's departure tabs against current Associates so returning members are never wrongly removed. Also does routine housekeeping: deletes stale (>7-day, no check-in) rows from the Applicant Challenge sheet. |
@@ -94,6 +94,36 @@ There's also a **daily, separate cron line** for `monitor_fx_associates.py` — 
 `run_all.sh`. It watches for a specific historical spreadsheet-formula bug (wrong-row
 references in an FX formula, fixed 2026-04-28) recurring, and self-disables after 7
 consecutive clean days.
+
+### 3a. The waitlist + referral system (added 2026-08-10)
+
+Professor Alex asked for a way to stop the applicant pool skewing so heavily toward
+engineers — the lab needs more business/entrepreneurship/marketing/finance-minded
+students. The fix layers on top of the existing Approved/Rejected classification,
+without changing it for anyone who was already going to be Rejected:
+
+- An applicant who would otherwise be **Approved** (reviewer set a non-blank,
+  non-rejection status) now also has their "Positions you are applying for" answer
+  checked against an accept-keyword list (business, marketing, entrepreneurship,
+  finance, strategy, and similar — the live list is column B of the **Keywords** tab
+  in the SEAL Applicants sheet, kept separate from that tab's unrelated pre-existing
+  column A). Any match → still Approved. No match (engineering-only) → **Waitlisted**
+  instead, into a new **Waitlist** tab that mirrors Approved's layout. They get a
+  waitlist email explaining why, with a way back in: recruit someone.
+- **Referral path back in:** a new applicant can name their referrer in "How Did You
+  Hear of Us?". If that name matches someone currently on the Waitlist tab, that
+  person is promoted straight to Approved (same group-add + email as any normal
+  approval) and removed from the Waitlist. If the named person **isn't** on the
+  Waitlist yet (they haven't applied themselves), the referral is held in a new
+  **Pending Referrals** tab for 7 days — if that person applies within the window
+  and would otherwise be waitlisted, they're approved directly instead (the pending
+  credit auto-redeems); if the week passes with no application, the entry expires
+  and is deleted automatically on the next run.
+- Deletions in this flow (removing a promoted person from Waitlist, removing a
+  resolved/expired Pending Referrals row) always re-confirm the row's identity
+  immediately before deleting and batch all deletes for a tab into one call in
+  descending row order — the same discipline adopted after the 2026-06-06
+  wrong-row-deletion incident below, applied here from the start.
 
 ## 4. The systems this touches
 
