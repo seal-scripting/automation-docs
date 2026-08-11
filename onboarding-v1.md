@@ -29,7 +29,7 @@ the full content into the `[ACTIVE]` tree — its `docs/onboarding-v1.md` is int
 just a short pointer stub to the `[MASTER]` copy (2026-07-28: real content used to live
 in both trees; now it's `[MASTER]`-only so there's one file to update, not two).
 
-_Last updated: 2026-08-10._
+_Last updated: 2026-08-11._
 
 ---
 
@@ -77,7 +77,7 @@ one having already updated the roster:
 | # | Script | Directive | What it does |
 |---|---|---|---|
 | 0 | `token_health_check.py` | — | Pre-flight: confirms every OAuth token can still refresh. If any token is dead, the whole run aborts before touching anything (nothing worse than a partial run against half-working credentials). |
-| 1 | `process_clan_cleanup.py` | [`process_clan_cleanup.md`](directives/process_clan_cleanup.md) | Reads the **Associates** tab of **SEAL Clan Life**. Routes departing/reclassified members out: evictions (GameOver/Ex-Communicado, Ex-Associate) move the row to the **Clan Life AAD** sheet and pull the person out of Google Groups + Slack; Affiliate moves the row within Clan Life; **Alumni** (a specific grade-column status) does a full access teardown (all groups) plus a one-time Discord-invite email. Also runs a **Sandbox swap** — a grade-driven, read-only Google Group membership toggle (in/out of the sandbox group) that never touches the sheet rows. Runs first because later stages assume departures have already been removed. |
+| 1 | `process_clan_cleanup.py` | [`process_clan_cleanup.md`](directives/process_clan_cleanup.md) | Reads the **Associates** tab of **SEAL Clan Life**. Routes departing/reclassified members out: evictions (GameOver/Ex-Communicado, Ex-Associate) move the row to the **Clan Life AAD** sheet and pull the person out of Google Groups + Slack — GameOver/Ex-Communicado additionally sends the student a one-time removal-notice email (as of 2026-08-11) explaining why and that they may reapply in six months; Affiliate moves the row within Clan Life; **Alumni** (a specific grade-column status) does a full access teardown (all groups) plus a one-time Discord-invite email. Also runs a **Sandbox swap** — a grade-driven, read-only Google Group membership toggle (in/out of the sandbox group) that never touches the sheet rows. Runs first because later stages assume departures have already been removed. |
 | 2 | `process_applicants.py` | [`process_applicants.md`](directives/process_applicants.md) | Reads new rows in the **SEAL Applicants** sheet's "Current Applicants" tab, classifies each Approved/Waitlisted/Rejected based on a reviewer-filled column plus (as of 2026-08-10) a field-of-interest keyword check, files them into the right tab, adds approved applicants to the onboarding Google Group, and sends the approval/waitlist/rejection email (tracked so it's never sent twice). See §3a below for the waitlist/referral mechanic. |
 | 3 | `process_challenge.py` | [`process_challenge.md`](directives/process_challenge.md) | Watches the **SEAL Applicant Challenge** sheet for applicants who've hit "stage 3" (finished Step 1 of onboarding). Promotes them into the **Associates** tab of Clan Life, adds them to the active Google Group, and gets them into the Slack workspace (invite if new, reactivate if returning). Runs after cleanup so a promoted student is never mistaken for someone who already left. |
 | 4 | `process_slack_audit.py` | [`process_slack_audit.md`](directives/process_slack_audit.md) | Compares every current Associate against the Slack workspace member list and fixes any drift (missing → invite, deactivated → reactivate). Deliberately runs **last** among the first four — it trusts the Associates tab completely, so anyone who should have already been evicted needs to be gone from Associates *before* this runs, or it will incorrectly restore their Slack access. |
@@ -136,7 +136,7 @@ without changing it for anyone who was already going to be Rejected:
 | **Automation Log** (Google Sheet, `1KS6JXbZVw3sSOQV17iNTtWdALLLueWJIHWeA5jCdX7Y`) | Every script's run log + error log, written by every stage |
 | **Google Groups** | `seal-active@maxalton.com` (active members), `sandbox@maxalton.com` (sandboxed members), `onboarding@maxalton.com` (in-progress applicants) — membership is added/removed as people move through the pipeline |
 | **Slack workspace** (`sealuw.slack.com`) | Access is invited/reactivated/deactivated in step with Associates membership. No official reliable admin API exists for this on the current plan, so most of the invite/reactivate/deactivate logic drives the Slack **web admin panel** via Playwright browser automation, with an API attempt tried first where possible |
-| **Gmail** (`admin@maxalton.com` and a dedicated send-only credential) | Sends approval/rejection emails to applicants and the one-time Alumni Discord-invite email |
+| **Gmail** (`admin@maxalton.com` and a dedicated send-only credential) | Sends approval/waitlist/rejection emails to applicants, the one-time Alumni Discord-invite email, and (as of 2026-08-11) the one-time GameOver/Ex-Communicado removal-notice email |
 
 ## 5. Where things live on disk
 
