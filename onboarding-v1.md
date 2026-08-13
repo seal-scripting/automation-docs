@@ -1,7 +1,3 @@
-> **Public mirror.** Source of truth: https://github.com/seal-scripting/Seal-Onboarding-Automation/blob/master/SYSTEM_OVERVIEW.md (private repo). This copy may lag behind if it was not updated in the same push — if in doubt, and you have access, check the private repo directly.
-
----
-
 # SEAL Onboarding Automation — System Overview
 
 _This file is the plain-language explanation of what this system is and how it currently
@@ -232,6 +228,20 @@ directive's "Learnings" section for the complete account:
   longer block the pipeline — note this specific incident was a *general* DNS failure,
   so this fix alone would not have prevented it; the Tailscale/DNS root cause is a
   separate open question.
+- **2026-08-11/12 — a same-repo change silently downgraded a token shared with a
+  different script.** The GameOver/Ex-Communicado removal-notice email added
+  `process_clan_cleanup.py` code that reused `token_applicants.json` (already
+  authorized for `spreadsheets` + `gmail.send`, since `process_applicants.py` needs
+  both) but requested only `gmail.send`. `get_credentials()` rewrites a token file
+  with whatever scope list it's called with on refresh, so this silently stripped
+  the `spreadsheets` scope — `process_applicants.py` then 403'd
+  (`ACCESS_TOKEN_SCOPE_INSUFFICIENT`) on every hourly run for ~31 hours before it
+  was caught, even though `process_clan_cleanup.py` itself looked completely
+  healthy the whole time (it doesn't need that scope). Fixed by always requesting
+  the union of scopes any shared token needs, everywhere it's loaded, so no single
+  caller can narrow what another caller depends on. **General lesson:** when two
+  scripts share one OAuth token file, grep for every other place that token path is
+  used before changing the scope list passed to `get_credentials()` for it.
 
 ## 8. How to check on it right now
 
