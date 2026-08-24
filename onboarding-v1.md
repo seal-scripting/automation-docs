@@ -25,7 +25,7 @@ the full content into the `[ACTIVE]` tree — its `docs/onboarding-v1.md` is int
 just a short pointer stub to the `[MASTER]` copy (2026-07-28: real content used to live
 in both trees; now it's `[MASTER]`-only so there's one file to update, not two).
 
-_Last updated: 2026-08-12._
+_Last updated: 2026-08-24._
 
 ---
 
@@ -74,7 +74,7 @@ one having already updated the roster:
 |---|---|---|---|
 | 0 | `token_health_check.py` | — | Pre-flight: confirms every OAuth token can still refresh. If any token is dead, the whole run aborts before touching anything (nothing worse than a partial run against half-working credentials). |
 | 1 | `process_clan_cleanup.py` | [`process_clan_cleanup.md`](directives/process_clan_cleanup.md) | Reads the **Associates** tab of **SEAL Clan Life**. Routes departing/reclassified members out: evictions (GameOver/Ex-Communicado, Ex-Associate) move the row to the **Clan Life AAD** sheet and pull the person out of Google Groups + Slack — GameOver/Ex-Communicado additionally sends the student a one-time removal-notice email (as of 2026-08-11) explaining why and that they may reapply in six months; Affiliate moves the row within Clan Life; **Alumni** (a specific grade-column status) does a full access teardown (all groups) plus a one-time Discord-invite email. Also runs a **Sandbox swap** — a grade-driven, read-only Google Group membership toggle (in/out of the sandbox group) that never touches the sheet rows. Runs first because later stages assume departures have already been removed. |
-| 2 | `process_applicants.py` | [`process_applicants.md`](directives/process_applicants.md) | Reads new rows in the **SEAL Applicants** sheet's "Current Applicants" tab, classifies each Approved/Waitlisted/Rejected based on a reviewer-filled column plus (as of 2026-08-10) a field-of-interest keyword check, files them into the right tab, adds approved applicants to the onboarding Google Group, and sends the approval/waitlist/rejection email (tracked so it's never sent twice). See §3a below for the waitlist/referral mechanic. |
+| 2 | `process_applicants.py` | [`process_applicants.md`](directives/process_applicants.md) | Reads new rows in the **SEAL Applicants** sheet's "Current Applicants" tab, classifies each Approved/Waitlisted/Rejected based on a status column plus (as of 2026-08-10) a field-of-interest keyword check, files them into the right tab, adds approved applicants to the onboarding Google Group, and sends the approval/waitlist/rejection email (tracked so it's never sent twice). See §3a below for the waitlist/referral mechanic and §3b for the 2026-08-24 stuck-applicant fix and reprocessing gate. Supports `--dry-run`. |
 | 3 | `process_challenge.py` | [`process_challenge.md`](directives/process_challenge.md) | Watches the **SEAL Applicant Challenge** sheet for applicants who've hit "stage 3" (finished Step 1 of onboarding). Promotes them into the **Associates** tab of Clan Life, adds them to the active Google Group, and gets them into the Slack workspace (invite if new, reactivate if returning). Runs after cleanup so a promoted student is never mistaken for someone who already left. |
 | 4 | `process_slack_audit.py` | [`process_slack_audit.md`](directives/process_slack_audit.md) | Compares every current Associate against the Slack workspace member list and fixes any drift (missing → invite, deactivated → reactivate). Deliberately runs **last** among the first four — it trusts the Associates tab completely, so anyone who should have already been evicted needs to be gone from Associates *before* this runs, or it will incorrectly restore their Slack access. |
 | 5 | `process_onboarding_cleanup.py` | [`process_onboarding_cleanup.md`](directives/process_onboarding_cleanup.md) | Removes departed members from the `onboarding@maxalton.com` Google Group (the one applicants get added to before they're full members), by cross-referencing the AAD sheet's departure tabs against current Associates so returning members are never wrongly removed. Also does routine housekeeping: deletes stale (>7-day, no check-in) rows from the Applicant Challenge sheet. |
@@ -120,6 +120,41 @@ without changing it for anyone who was already going to be Rejected:
   immediately before deleting and batch all deletes for a tab into one call in
   descending row order — the same discipline adopted after the 2026-06-06
   wrong-row-deletion incident below, applied here from the start.
+
+### 3b. The stuck-applicant fix and reprocessing gate (2026-08-24)
+
+Applicant review silently stalled starting 2026-08-10 — the same day the waitlist feature
+above shipped. Column N ("Status") in "Current Applicants" is meant to be set before a row
+is classified; nothing had been setting it for two weeks, so every applicant who applied
+after 2026-08-10 (and a large pre-existing backlog going back further) sat permanently in
+"awaiting review" — zero errors anywhere in the logs, because the script was working exactly
+as designed. Diagnosed and fixed same-day:
+
+- **Blank status is no longer skipped.** It's now treated identically to any other
+  non-rejected status — it flows through the same field-of-interest gate as everyone else
+  (Approved or Waitlisted, never Rejected, since rejection requires an explicit keyword
+  match).
+- **A new gate on column O** ("Current Applicants") throttles how much of the backlog gets
+  processed per cycle. Column O there is a pre-existing, reviewer-maintained "I've already
+  contacted this person" marker — a different field from the same-lettered "Email Sent"
+  column O on the Approved/Rejected/Waitlist tabs, despite sharing an index. A non-blank
+  value means this row's own classification is not reconsidered this cycle. This is what let
+  the two-week backlog come back online gradually (13 real applicants in the first live run)
+  instead of firing hundreds of emails in one shot.
+- **Referral resolution bypasses that gate.** A person currently on the Waitlist can still be
+  promoted to Approved via a new applicant's referral even when that new applicant's own row
+  hasn't been cleared by the column-O gate — otherwise the referral system would functionally
+  break for the entire backlog. Verified with a real test row (create + dry run + cleanup):
+  both the referring applicant and the referred Waitlist person came out Approved.
+- **The automation now writes "Y" back to that same column O** after actually sending an
+  approval/rejection/waitlist email, traced from the destination-tab row back to its source
+  row via the same (email, date) key used for dedup. Previously only a human ever wrote to
+  that column, so the automation's own sends left it looking untouched — a reviewer scanning
+  the sheet had no way to tell "the bot already emailed this person" from "still needs
+  outreach."
+- **`process_applicants.py` now supports `--dry-run`** — full classification and logging with
+  zero sheet writes, group changes, or emails — used to safely preview the backlog-sized first
+  run before it went live.
 
 ## 4. The systems this touches
 
@@ -242,6 +277,12 @@ directive's "Learnings" section for the complete account:
   caller can narrow what another caller depends on. **General lesson:** when two
   scripts share one OAuth token file, grep for every other place that token path is
   used before changing the scope list passed to `get_credentials()` for it.
+- **2026-08-10 through 2026-08-24 — applicant review silently stalled for two weeks,
+  zero errors logged.** See §3b above for the full fix. The root cause was a data/process
+  gap, not a code bug — the classification logic did exactly what it was told (skip until
+  a status is set); nothing was setting the status. Worth remembering generally: a script
+  reporting "SUCCESS" every run with 0 errors does not mean it's accomplishing anything —
+  check the actual outcome counts, not just the exit status. ([`process_applicants.md`](directives/process_applicants.md))
 
 ## 8. How to check on it right now
 
@@ -254,4 +295,5 @@ directive's "Learnings" section for the complete account:
 - **Is a change safe to make?** Most tunable values (sheet IDs, tab names, column indices,
   group emails, email templates, thresholds) live in `config.yaml` and don't require code
   changes. Anything else should go through a script's `--dry-run` mode (most of the
-  eviction-related scripts support one) before a live run.
+  eviction-related scripts support one, and `process_applicants.py` gained one 2026-08-24)
+  before a live run.
