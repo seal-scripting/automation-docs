@@ -25,7 +25,7 @@ the full content into the `[ACTIVE]` tree — its `docs/onboarding-v1.md` is int
 just a short pointer stub to the `[MASTER]` copy (2026-07-28: real content used to live
 in both trees; now it's `[MASTER]`-only so there's one file to update, not two).
 
-_Last updated: 2026-08-24._
+_Last updated: 2026-08-29._
 
 ---
 
@@ -100,12 +100,14 @@ without changing it for anyone who was already going to be Rejected:
 
 - An applicant who would otherwise be **Approved** (reviewer set a non-blank,
   non-rejection status) now also has their "Positions you are applying for" answer
-  checked against an accept-keyword list (business, marketing, entrepreneurship,
-  finance, strategy, and similar — the live list is column B of the **Keywords** tab
-  in the SEAL Applicants sheet, kept separate from that tab's unrelated pre-existing
-  column A). Any match → still Approved. No match (engineering-only) → **Waitlisted**
-  instead, into a new **Waitlist** tab that mirrors Approved's layout. They get a
-  waitlist email explaining why, with a way back in: recruit someone.
+  (and, as of 2026-08-26, their "Interest" free-text answer too — students tend to
+  elaborate more there) checked against an accept-keyword list (business, marketing,
+  entrepreneurship, finance, strategy, and similar — the live list is column B of the
+  **Keywords** tab in the SEAL Applicants sheet, kept separate from that tab's
+  unrelated pre-existing column A). A match in either field → still Approved. No
+  match in either → **Waitlisted** instead, into a new **Waitlist** tab that mirrors
+  Approved's layout. They get a waitlist email explaining why, with a way back in:
+  recruit someone.
 - **Referral path back in:** a new applicant can name their referrer in "How Did You
   Hear of Us?". If that name matches someone currently on the Waitlist tab, that
   person is promoted straight to Approved (same group-add + email as any normal
@@ -120,6 +122,14 @@ without changing it for anyone who was already going to be Rejected:
   immediately before deleting and batch all deletes for a tab into one call in
   descending row order — the same discipline adopted after the 2026-06-06
   wrong-row-deletion incident below, applied here from the start.
+- **Manual leader override (added 2026-08-29):** a lab leader can also promote a
+  waitlisted applicant to Approved directly, without a referral, by checking a
+  checkbox in column P ("Manual Approve") on that person's row in the Waitlist
+  tab itself — no need to go through Claude Code. On the next hourly run that row
+  is promoted through the exact same write/group-add/email pipeline as a referral
+  promotion, and removed from Waitlist the same identity-reverified way. A row
+  flagged this way is excluded from that run's referral matching so it can't be
+  promoted/deleted twice in one cycle.
 
 ### 3b. The stuck-applicant fix and reprocessing gate (2026-08-24)
 
