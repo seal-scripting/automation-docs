@@ -130,6 +130,14 @@ without changing it for anyone who was already going to be Rejected:
   promotion, and removed from Waitlist the same identity-reverified way. A row
   flagged this way is excluded from that run's referral matching so it can't be
   promoted/deleted twice in one cycle.
+- **Quality-check exception for Waitlist promotions (added 2026-08-29):** a
+  cross-tab quality check normally blocks the approval email for an address
+  that also appears in Rejected or Waitlist (usually a sign of misclassification).
+  A row promoted off Waitlist this run — referral or column P — is a deliberate
+  decision, so it always gets the approval email regardless, even against an
+  older, unrelated Rejected record for the same person from a different
+  application cycle. Scoped to this run's promotions only; logged as an
+  `OVERRIDE` rather than silently skipped.
 
 ### 3b. The stuck-applicant fix and reprocessing gate (2026-08-24)
 
