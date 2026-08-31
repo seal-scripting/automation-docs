@@ -25,7 +25,7 @@ the full content into the `[ACTIVE]` tree — its `docs/onboarding-v1.md` is int
 just a short pointer stub to the `[MASTER]` copy (2026-07-28: real content used to live
 in both trees; now it's `[MASTER]`-only so there's one file to update, not two).
 
-_Last updated: 2026-08-31._
+_Last updated: 2026-08-31 (Run Log fix)._
 
 ---
 
@@ -315,6 +315,17 @@ directive's "Learnings" section for the complete account:
   a status is set); nothing was setting the status. Worth remembering generally: a script
   reporting "SUCCESS" every run with 0 errors does not mean it's accomplishing anything —
   check the actual outcome counts, not just the exit status. ([`process_applicants.md`](directives/process_applicants.md))
+- **2026-08-31 — a run doing real work could vanish from the Run Log.** Found during a
+  full-pipeline dry-run audit: `process_applicants.py`'s self-healing email backfill (see
+  "Column O — Email Sent tracker" in its directive) can send real emails on a run that
+  classifies zero new applicants — exactly what happened that afternoon, sending 13 real
+  approval emails left over from the same-day Waitlist migration (§3a). But the Run Log
+  summary only ever checked that cycle's classification counts, never whether the backfill
+  actually sent anything, so the run's own audit-trail entry silently vanished as "no
+  actions or errors" despite 13 real sends and 13 real column-O writes. Same class of blind
+  spot as the row above, inverted: real work, zero record, instead of zero work, a clean-
+  looking log. Fixed by tracking emails-sent separately from classification counts and
+  always giving it a Run Log entry when non-zero. ([`process_applicants.md`](directives/process_applicants.md))
 
 ## 8. How to check on it right now
 
