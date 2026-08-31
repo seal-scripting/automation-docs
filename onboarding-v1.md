@@ -25,7 +25,7 @@ the full content into the `[ACTIVE]` tree — its `docs/onboarding-v1.md` is int
 just a short pointer stub to the `[MASTER]` copy (2026-07-28: real content used to live
 in both trees; now it's `[MASTER]`-only so there's one file to update, not two).
 
-_Last updated: 2026-08-29._
+_Last updated: 2026-08-31._
 
 ---
 
@@ -74,7 +74,7 @@ one having already updated the roster:
 |---|---|---|---|
 | 0 | `token_health_check.py` | — | Pre-flight: confirms every OAuth token can still refresh. If any token is dead, the whole run aborts before touching anything (nothing worse than a partial run against half-working credentials). |
 | 1 | `process_clan_cleanup.py` | [`process_clan_cleanup.md`](directives/process_clan_cleanup.md) | Reads the **Associates** tab of **SEAL Clan Life**. Routes departing/reclassified members out: evictions (GameOver/Ex-Communicado, Ex-Associate) move the row to the **Clan Life AAD** sheet and pull the person out of Google Groups + Slack — GameOver/Ex-Communicado additionally sends the student a one-time removal-notice email (as of 2026-08-11) explaining why and that they may reapply in six months; Affiliate moves the row within Clan Life; **Alumni** (a specific grade-column status) does a full access teardown (all groups) plus a one-time Discord-invite email. Also runs a **Sandbox swap** — a grade-driven, read-only Google Group membership toggle (in/out of the sandbox group) that never touches the sheet rows. Runs first because later stages assume departures have already been removed. |
-| 2 | `process_applicants.py` | [`process_applicants.md`](directives/process_applicants.md) | Reads new rows in the **SEAL Applicants** sheet's "Current Applicants" tab, classifies each Approved/Waitlisted/Rejected based on a status column plus (as of 2026-08-10) a field-of-interest keyword check, files them into the right tab, adds approved applicants to the onboarding Google Group, and sends the approval/waitlist/rejection email (tracked so it's never sent twice). See §3a below for the waitlist/referral mechanic and §3b for the 2026-08-24 stuck-applicant fix and reprocessing gate. Supports `--dry-run`. |
+| 2 | `process_applicants.py` | [`process_applicants.md`](directives/process_applicants.md) | Reads new rows in the **SEAL Applicants** sheet's "Current Applicants" tab, classifies each Approved/Rejected based on a status column, files them into the right tab, adds approved applicants to the onboarding Google Group, and sends the approval/rejection email (tracked so it's never sent twice). The field-of-interest/waitlist/referral system (2026-08-10) is present in code but disabled as of 2026-08-31 — see §3a below. §3b covers the 2026-08-24 stuck-applicant fix and reprocessing gate, which still applies. Supports `--dry-run`. |
 | 3 | `process_challenge.py` | [`process_challenge.md`](directives/process_challenge.md) | Watches the **SEAL Applicant Challenge** sheet for applicants who've hit "stage 3" (finished Step 1 of onboarding). Promotes them into the **Associates** tab of Clan Life, adds them to the active Google Group, and gets them into the Slack workspace (invite if new, reactivate if returning). Runs after cleanup so a promoted student is never mistaken for someone who already left. |
 | 4 | `process_slack_audit.py` | [`process_slack_audit.md`](directives/process_slack_audit.md) | Compares every current Associate against the Slack workspace member list and fixes any drift (missing → invite, deactivated → reactivate). Deliberately runs **last** among the first four — it trusts the Associates tab completely, so anyone who should have already been evicted needs to be gone from Associates *before* this runs, or it will incorrectly restore their Slack access. |
 | 5 | `process_onboarding_cleanup.py` | [`process_onboarding_cleanup.md`](directives/process_onboarding_cleanup.md) | Removes departed members from the `onboarding@maxalton.com` Google Group (the one applicants get added to before they're full members), by cross-referencing the AAD sheet's departure tabs against current Associates so returning members are never wrongly removed. Also does routine housekeeping: deletes stale (>7-day, no check-in) rows from the Applicant Challenge sheet. |
@@ -91,7 +91,21 @@ There's also a **daily, separate cron line** for `monitor_fx_associates.py` — 
 references in an FX formula, fixed 2026-04-28) recurring, and self-disables after 7
 consecutive clean days.
 
-### 3a. The waitlist + referral system (added 2026-08-10)
+### 3a. The waitlist + referral system (added 2026-08-10, SUNSET 2026-08-31)
+
+**Disabled as of 2026-08-31, per Harris.** `waitlist_enabled: false` in `config.yaml`
+turns off everything described in this section — the field-of-interest gate, the
+referral resolution, manual promotion, and pending-referral expiry sweep — without
+deleting any code, so it can come back with a one-line config change. While
+disabled, every non-blank, non-rejected applicant goes straight to Approved, same
+as before 2026-08-10. A git revert to before this feature was considered and
+rejected: 6 unrelated commits (an OAuth-scope fix, the 2026-08-24 stuck-applicant
+fix in §3b below, a removal-notice email feature, a Pending Referrals crash fix)
+landed in the same files afterward, and a revert would have destroyed those too.
+As part of the sunset, the 13 real applicants then sitting on the Waitlist tab were
+migrated to Approved (sheet row + both Google Groups), and the ~300 rows that had
+piled up in Pending Referrals were cleared — both confirmed with Harris first.
+The rest of this section describes what re-enabling the flag turns back on.
 
 Professor Alex asked for a way to stop the applicant pool skewing so heavily toward
 engineers — the lab needs more business/entrepreneurship/marketing/finance-minded
